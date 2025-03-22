@@ -1,4 +1,4 @@
-import { Body, Controller, Post, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, HttpStatus, Post, Req, UseGuards } from '@nestjs/common';
 import { ApiBody, ApiOperation } from '@nestjs/swagger';
 import { CreateUserDto } from 'src/user/dto/create-user.dto';
 import { LoginUserDto } from 'src/user/dto/login-user.dto';
@@ -6,6 +6,10 @@ import { User } from 'src/user/entities/user.entity';
 import { AuthService } from './auth.service';
 import { LocalAuthGuard } from './guards/local-auth.guard';
 import { RequestWithUser } from './interfaces/requestWithUser';
+import { SendEmailDto } from 'src/user/dto/send-email.dto';
+import { VerifyEmailDto } from 'src/user/dto/verify-email.dto';
+import { AccessTokenGuard } from './guards/access-token.guard';
+import { GoogleAuthGuard } from './guards/google-auth.guard';
 
 @Controller('auth')
 export class AuthController {
@@ -41,7 +45,36 @@ export class AuthController {
     type: LoginUserDto
   })
   async loginUser(@Req() r: RequestWithUser){
-    return r.user;
+    const { user } = r;
+    const accessToken = await this.authService.generateAccessToken(user.id)
+    return { user , accessToken };
   }
 
+  @Get("/google")
+  @UseGuards(GoogleAuthGuard)
+  async googleLogin(): Promise<any>{
+    return HttpStatus.OK;
+  }
+
+  @Get("/google/callback")
+  @UseGuards(GoogleAuthGuard)
+  async googleLoginCallback(@Req() req:RequestWithUser): Promise<any>{
+    return req.user;
+  }
+
+  @Get()
+  @UseGuards(AccessTokenGuard)
+  async getUserInfo(@Req() req:RequestWithUser): Promise<User>{
+    return req.user;
+  }
+
+  @Post('/send/email')
+  async sendEmail(@Body() sendEmailDto : SendEmailDto): Promise<void>{
+    return await this.authService.sendEmailVerify(sendEmailDto.email);
+  }
+
+  @Post('/verify/email')
+  async verifyEmail(@Body() verifyEmailDto: VerifyEmailDto): Promise<boolean>{
+    return await this.authService.configVerify(verifyEmailDto);
+  }
 }
